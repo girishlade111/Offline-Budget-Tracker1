@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Budget Tracker</title>
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiT2ZmbGluZSBCdWRnZXQgVHJhY2tlciIsInNob3J0X25hbWUiOiJCdWRnZXQgVHJhY2tlciIsImRlc2NyaXB0aW9uIjoiQW4gb2ZmbGluZS1maXJzdCBwZXJzb25hbCBidWRnZXQgdHJhY2tpbmcgYXBwIiwic3RhcnRfdXJsIjoiLyIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiNmZmZmZmYiLCJ0aGVtZV9jb2xvciI6IiMzNDk4ZGIifQ==">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/date-fns/2.30.0/date-fns.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --accent-color: #e74c3c;
+            --background-color: #f9f9f9;
+            --card-color: #ffffff;
+            --text-color: #333333;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .app-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+        }
+
+        h1, h2, h3, h4 {
+            margin-top: 0;
+            color: var(--text-color);
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-color);
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .nav-tab.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background-color: var(--card-color);
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            transition: transform 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background-color: var(--card-color);
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.25rem;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.25rem;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button.secondary {
+            background-color: #95a5a6;
+        }
+
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        button.danger {
+            background-color: var(--accent-color);
+        }
+
+        button.danger:hover {
+            background-color: #c0392b;
+        }
+
+        .transactions-list {
+            margin-top: 2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            text-align: left;
+            padding: 1rem;
+            background-color: #f2f2f2;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        tbody td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .transaction-amount {
+            font-weight: 500;
+        }
+
+        .amount-income {
+            color: var(--secondary-color);
+        }
+
+        .amount-expense {
+            color: var(--accent-color);
+        }
+
+        .transaction-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            padding: 0.25rem;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .btn-icon:hover {
+            color: var(--primary-color);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 2rem;
+        }
+
+        .date-range {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .category-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: white;
+        }
+
+        .filter-container {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-item {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: var(--card-color);
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 2rem;
+            position: relative;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .modal-title {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .reminders-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .reminder-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .reminder-info {
+            flex: 1;
+        }
+
+        .reminder-title {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .reminder-details {
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        .reminder-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            background-color: #2ecc71;
+            color: white;
+            border-radius: 0.25rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .toast.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.error {
+            background-color: var(--accent-color);
+        }
+
+        .category-color {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        .settings-section {
+            margin-bottom: 2rem;
+        }
+
+        .categories-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .category-item {
+            background-color: var(--card-color);
+            border-radius: 0.25rem;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .category-info {
+            display: flex;
+            align-items: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .chart-container {
+                height: 250px;
+            }
+
+            .filter-container {
+                flex-direction: column;
+            }
+
+            .filter-item {
+                width: 100%;
+            }
+
+            .transaction-actions {
+                flex-direction: column;
+            }
+        }
+
+        /* Loading indicator */
+        .loading {
+            display: inline-block;
+            width: 1.5rem;
+            height: 1.5rem;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .offline-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background-color: #f39c12;
+            color: white;
+            text-align: center;
+            padding: 0.5rem;
+            font-weight: 500;
+            z-index: 999;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="offline-indicator" class="offline-indicator">You are offline. Data is stored locally.</div>
+    
+    <!-- App Container -->
+    <div class="app-container">
+        <header>
+            <h1>Offline Budget Tracker</h1>
+            <div>
+                <button id="btn-export-csv">Export CSV</button>
+            </div>
+        </header>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="dashboard">Dashboard</button>
+            <button class="nav-tab" data-tab="transactions">Transactions</button>
+            <button class="nav-tab" data-tab="reminders">Reminders</button>
+            <button class="nav-tab" data-tab="settings">Settings</button>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div class="stats-container">
+                <div class="stat-item">
+                    <div class="stat-value" id="total-balance">$0.00</div>
+                    <div class="stat-label">Current Balance</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="total-income">$0.00</div>
+                    <div class="stat-label">Monthly Income</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="total-expenses">$0.00</div>
+                    <div class="stat-label">Monthly Expenses</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="upcoming-expenses">$0.00</div>
+                    <div class="stat-label">Upcoming Expenses</div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Add Transaction</h3>
+                    </div>
+                    <form id="transaction-form">
+                        <div class="form-group">
+                            <label for="transaction-type">Type</label>
+                            <select id="transaction-type" required>
+                                <option value="expense">Expense</option>
+                                <option value="income">Income</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-amount">Amount</label>
+                            <input type="number" id="transaction-amount" step="0.01" min="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-date">Date</label>
+                            <input type="date" id="transaction-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-category">Category</label>
+                            <select id="transaction-category" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-description">Description</label>
+                            <input type="text" id="transaction-description" placeholder="e.g., Grocery shopping">
+                        </div>
+                        <button type="submit">Add Transaction</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Expense Distribution</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="expenses-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Monthly Overview</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="monthly-overview-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Recent Transactions</h3>
+                </div>
+                <div id="recent-transactions"></div>
+            </div>
+        </div>
+
+        <!-- Transactions Tab -->
+        <div id="transactions" class="tab-content">
+            <div class="filter-container">
+                <div class="filter-item">
+                    <label for="filter-date-from">From</label>
+                    <input type="date" id="filter-date-from">
+                </div>
+                <div class="filter-item">
+                    <label for="filter-date-to">To</label>
+                    <input type="date" id="filter-date-to">
+                </div>
+                <div class="filter-item">
+                    <label for="filter-type">Type</label>
+                    <select id="filter-type">
+                        <option value="all">All</option>
+                        <option value="income">Income</option>
+                        <option value="expense">Expense</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="filter-category">Category</label>
+                    <select id="filter-category">
+                        <option value="all">All Categories</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label>&nbsp;</label>
+                    <button id="btn-apply-filters">Apply Filters</button>
+                </div>
+            </div>
+
+            <div class="transactions-list" id="transactions-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactions-table-body">
+                        <!-- Transactions will be dynamically inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Reminders Tab -->
+        <div id="reminders" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Add Reminder</h3>
+                </div>
+                <form id="reminder-form">
+                    <div class="form-group">
+                        <label for="reminder-title">Title</label>
+                        <input type="text" id="reminder-title" required placeholder="e.g., Rent Payment">
+                    </div>
+                    <div class="form-group">
+                        <label for="reminder-amount">Amount</label>
+                        <input type="number" id="reminder-amount" step="0.01" min="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="reminder-category">Category</label>
+                        <select id="reminder-category" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="reminder-frequency">Frequency</label>
+                        <select id="reminder-frequency" required>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="biweekly">Bi-weekly</option>
+                            <option value="monthly" selected>Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="reminder-next-date">Next Due Date</label>
+                        <input type="date" id="reminder-next-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reminder-notes">Notes</label>
+                        <textarea id="reminder-notes" rows="3" placeholder="Additional details..."></textarea>
+                    </div>
+                    <button type="submit">Add Reminder</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Upcoming Reminders</h3>
+                </div>
+                <ul class="reminders-list" id="reminders-list">
+                    <!-- Reminders will be dynamically inserted here -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings" class="tab-content">
+            <div class="settings-section">
+                <h3>Categories</h3>
+                <p>Manage your transaction categories.</p>
+                
+                <form id="category-form" class="card">
+                    <div class="form-group">
+                        <label for="category-name">Category Name</label>
+                        <input type="text" id="category-name" required placeholder="e.g., Groceries">
+                    </div>
+                    <div class="form-group">
+                        <label for="category-type">Type</label>
+                        <select id="category-type" required>
+                            <option value="expense">Expense</option>
+                            <option value="income">Income</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="category-color">Color</label>
+                        <input type="color" id="category-color" value="#3498db">
+                    </div>
+                    <button type="submit">Add Category</button>
+                </form>
+
+                <div class="categories-list" id="categories-list">
+                    <!-- Categories will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>Data Management</h3>
+                <p>Backup, restore, or reset your data.</p>
+                
+                <div class="card">
+                    <button id="btn-backup-data">Backup Data</button>
+                    <button id="btn-restore-data" class="secondary">Restore Data</button>
+                    <button id="btn-reset-data" class="danger">Reset All Data</button>
+                    <input type="file" id="restore-file-input" class="hidden" accept=".json">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Transaction Modal -->
+    <div id="edit-transaction-modal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" id="close-edit-transaction">&times;</button>
+            <h3 class="modal-title">Edit Transaction</h3>
+            <form id="edit-transaction-form">
+                <input type="hidden" id="edit-transaction-id">
+                <div class="form-group">
+                    <label for="edit-transaction-type">Type</label>
+                    <select id="edit-transaction-type" required>
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-transaction-amount">Amount</label>
+                    <input type="number" id="edit-transaction-amount" step="0.01" min="0.01" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="edit-transaction-date">Date</label>
+                    <input type="date" id="edit-transaction-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-transaction-category">Category</label>
+                    <select id="edit-transaction-category" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-transaction-description">Description</label>
+                    <input type="text" id="edit-transaction-description" placeholder="e.g., Grocery shopping">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary" id="cancel-edit-transaction">Cancel</button>
+                    <button type="submit">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Reminder Modal -->
+    <div id="edit-reminder-modal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" id="close-edit-reminder">&times;</button>
+            <h3 class="modal-title">Edit Reminder</h3>
+            <form id="edit-reminder-form">
+                <input type="hidden" id="edit-reminder-id">
+                <div class="form-group">
+                    <label for="edit-reminder-title">Title</label>
+                    <input type="text" id="edit-reminder-title" required placeholder="e.g., Rent Payment">
+                </div>
+                <div class="form-group">
+                    <label for="edit-reminder-amount">Amount</label>
+                    <input type="number" id="edit-reminder-amount" step="0.01" min="0.01" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="edit-reminder-category">Category</label>
+                    <select id="edit-reminder-category" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-reminder-frequency">Frequency</label>
+                    <select id="edit-reminder-frequency" required>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="biweekly">Bi-weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-reminder-next-date">Next Due Date</label>
+                    <input type="date" id="edit-reminder-next-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-reminder-notes">Notes</label>
+                    <textarea id="edit-reminder-notes" rows="3" placeholder="Additional details..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary" id="cancel-edit-reminder">Cancel</button>
+                    <button type="submit">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-confirmation-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="modal-title">Confirm Deletion</h3>
+            <p>Are you sure you want to delete this item? This action cannot be undone.</p>
+            <div class="modal-footer">
+                <button class="secondary" id="cancel-delete">Cancel</button>
+                <button class="danger" id="confirm-delete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // Register service worker for offline functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful');
+                }).catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+
+        // Check for offline status
+        function updateOnlineStatus() {
+            const offlineIndicator = document.getElementById('offline-indicator');
+            if (navigator.onLine) {
+                offlineIndicator.style.display = 'none';
+            } else {
+                offlineIndicator.style.display = 'block';
+            }
+        }
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
+
+        // Initialize IndexedDB using Dexie
+        const db = new Dexie('BudgetTrackerDB');
+        db.version(1).stores({
+            transactions: '++id, date, type, category, amount, description',
+            categories: '++id, name, type, color',
+            reminders: '++id, title, nextDate, frequency, amount, category, notes'
+        });
+
+        // Default categories
+        const defaultCategories = [
+            { name: 'Groceries', type: 'expense', color: '#e74c3c' },
+            { name: 'Rent/Mortgage', type: 'expense', color: '#9b59b6' },
+            { name: 'Utilities', type: 'expense', color: '#3498db' },
+            { name: 'Transportation', type: 'expense', color: '#2ecc71' },
+            { name: 'Entertainment', type: 'expense', color: '#f39c12' },
+            { name: 'Dining Out', type: 'expense', color: '#e67e22' },
+            { name: 'Healthcare', type: 'expense', color: '#1abc9c' },
+            { name: 'Shopping', type: 'expense', color: '#d35400' },
+            { name: 'Personal Care', type: 'expense', color: '#27ae60' },
+            { name: 'Education', type: 'expense', color: '#8e44ad' },
+            { name: 'Investments', type: 'expense', color: '#2c3e50' },
+            { name: 'Subscriptions', type: 'expense', color: '#c0392b' },
+            { name: 'Salary', type: 'income', color: '#16a085' },
+            { name: 'Freelance', type: 'income', color: '#2980b9' },
+            { name: 'Gifts', type: 'income', color: '#f1c40f' },
+            { name: 'Investments', type: 'income', color: '#27ae60' },
+            { name: 'Other Income', type: 'income', color: '#7f8c8d' }
+        ];
+
+        // Initialize categories if empty
+        async function initCategories() {
+            const count = await db.categories.count();
+            if (count === 0) {
+                try {
+                    await db.categories.bulkAdd(defaultCategories);
+                    console.log('Default categories added successfully');
+                    showToast('Default categories initialized');
+                } catch (error) {
+                    console.error('Error adding default categories:', error);
+                }
+            }
+            await loadCategories();
+        }
+
+        // Load categories into selectors and display in settings
+        async function loadCategories() {
+            try {
+                const categories = await db.categories.toArray();
+                
+                // Clear existing options in selectors
+                const categorySelectors = [
+                    document.getElementById('transaction-category'),
+                    document.getElementById('edit-transaction-category'),
+                    document.getElementById('reminder-category'),
+                    document.getElementById('edit-reminder-category'),
+                    document.getElementById('filter-category')
+                ];
+                
+                categorySelectors.forEach(selector => {
+                    if (selector) {
+                        selector.innerHTML = '';
+                        if (selector.id === 'filter-category') {
+                            selector.appendChild(new Option('All Categories', 'all'));
+                        }
+                    }
+                });
+                
+                // Filter categories by type for transaction forms
+                const expenseCategories = categories.filter(cat => cat.type === 'expense');
+                const incomeCategories = categories.filter(cat => cat.type === 'income');
+                
+                // Function to populate category options based on type
+                function populateCategoriesByType(selector, type) {
+                    if (!selector) return;
+                    
+                    selector.innerHTML = '';
+                    const relevantCategories = type === 'expense' ? expenseCategories : incomeCategories;
+                    
+                    relevantCategories.forEach(category => {
+                        const option = new Option(category.name, category.id);
+                        selector.appendChild(option);
+                    });
+                }
+                
+                // Initialize transaction form with expense categories by default
+                populateCategoriesByType(document.getElementById('transaction-category'), 'expense');
+                populateCategoriesByType(document.getElementById('edit-transaction-category'), 'expense');
+                
+                // Add event listeners to type selectors to update category options
+                const typeSelectors = [
+                    { type: document.getElementById('transaction-type'), category: document.getElementById('transaction-category') },
+                    { type: document.getElementById('edit-transaction-type'), category: document.getElementById('edit-transaction-category') }
+                ];
+                
+                typeSelectors.forEach(selector => {
+                    if (selector.type && selector.category) {
+                        selector.type.addEventListener('change', () => {
+                            populateCategoriesByType(selector.category, selector.type.value);
+                        });
+                    }
+                });
+                
+                // Populate reminder category selectors with expense categories only
+                const reminderCategorySelectors = [
+                    document.getElementById('reminder-category'),
+                    document.getElementById('edit-reminder-category')
+                ];
+                
+                reminderCategorySelectors.forEach(selector => {
+                    if (selector) {
+                        selector.innerHTML = '';
+                        expenseCategories.forEach(category => {
+                            const option = new Option(category.name, category.id);
+                            selector.appendChild(option);
+                        });
+                    }
+                });
+                
+                // Populate filter category selector with all categories
+                const filterCategorySelector = document.getElementById('filter-category');
+                if (filterCategorySelector) {
+                    categories.forEach(category => {
+                        const option = new Option(category.name, category.id);
+                        filterCategorySelector.appendChild(option);
+                    });
+                }
+                
+                // Display categories in settings
+                displayCategories(categories);
+                
+            } catch (error) {
+                console.error('Error loading categories:', error);
+                showToast('Failed to load categories', true);
+            }
+        }
+
+        // Display categories in settings tab
+        function displayCategories(categories) {
+            const categoriesList = document.getElementById('categories-list');
+            categoriesList.innerHTML = '';
+            
+            categories.forEach(category => {
+                const categoryItem = document.createElement('div');
+                categoryItem.className = 'category-item';
+                categoryItem.innerHTML = `
+                    <div class="category-info">
+                        <span class="category-color" style="background-color: ${category.color};"></span>
+                        <span>${category.name}</span>
+                        <small style="margin-left: 0.5rem; color: #666;">(${category.type})</small>
+                    </div>
+                    <div class="category-actions">
+                        <button class="btn-icon edit-category" data-id="${category.id}">✏️</button>
+                        <button class="btn-icon delete-category" data-id="${category.id}">🗑️</button>
+                    </div>
+                `;
+                categoriesList.appendChild(categoryItem);
+            });
+            
+            // Add event listeners for edit and delete buttons
+            document.querySelectorAll('.edit-category').forEach(button => {
+                button.addEventListener('click', () => editCategory(button.dataset.id));
+            });
+            
+            document.querySelectorAll('.delete-category').forEach(button => {
+                button.addEventListener('click', () => deleteCategory(button.dataset.id));
+            });
+        }
+
+        // Add new category
+        const categoryForm = document.getElementById('category-form');
+        categoryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('category-name').value.trim();
+            const type = document.getElementById('category-type').value;
+            const color = document.getElementById('category-color').value;
+            
+            if (!name) {
+                showToast('Please enter a category name', true);
+                return;
+            }
+            
+            try {
+                // Check if category with same name and type already exists
+                const existingCategory = await db.categories
+                    .where('name').equals(name)
+                    .and(cat => cat.type === type)
+                    .first();
+                
+                if (existingCategory) {
+                    showToast(`A ${type} category with this name already exists`, true);
+                    return;
+                }
+                
+                // Add new category
+                await db.categories.add({ name, type, color });
+                
+                // Reset form
+                categoryForm.reset();
+                document.getElementById('category-color').value = '#3498db';
+                
+                // Reload categories
+                await loadCategories();
+                
+                showToast('Category added successfully');
+            } catch (error) {
+                console.error('Error adding category:', error);
+                showToast('Failed to add category', true);
+            }
+        });
+
+        // Edit category
+        let currentCategoryId = null;
+
+        async function editCategory(id) {
+            try {
+                const category = await db.categories.get(parseInt(id));
+                if (!category) {
+                    showToast('Category not found', true);
+                    return;
+                }
+                
+                // Fill form with category details
+                document.getElementById('category-name').value = category.name;
+                document.getElementById('category-type').value = category.type;
+                document.getElementById('category-color').value = category.color;
+                
+                // Change button text
+                const submitButton = categoryForm.querySelector('button[type="submit"]');
+                submitButton.textContent = 'Update Category';
+                
+                // Store category ID
+                currentCategoryId = category.id;
+                
+                // Scroll to the form
+                categoryForm.scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                console.error('Error editing category:', error);
+                showToast('Failed to edit category', true);
+            }
+        }
+
+        // Update form submission handler to handle both add and edit
+        categoryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('category-name').value.trim();
+            const type = document.getElementById('category-type').value;
+            const color = document.getElementById('category-color').value;
+            
+            if (!name) {
+                showToast('Please enter a category name', true);
+                return;
+            }
+            
+            try {
+                if (currentCategoryId) {
+                    // Update existing category
+                    await db.categories.update(currentCategoryId, { name, type, color });
+                    showToast('Category updated successfully');
+                    
+                    // Reset form and button text
+                    const submitButton = categoryForm.querySelector('button[type="submit"]');
+                    submitButton.textContent = 'Add Category';
+                    currentCategoryId = null;
+                } else {
+                    // Check if category with same name and type already exists
+                    const existingCategory = await db.categories
+                        .where('name').equals(name)
+                        .and(cat => cat.type === type)
+                        .first();
+                    
+                    if (existingCategory) {
+                        showToast(`A ${type} category with this name already exists`, true);
+                        return;
+                    }
+                    
+                    // Add new category
+                    await db.categories.add({ name, type, color });
+                    showToast('Category added successfully');
+                }
+                
+                // Reset form
+                categoryForm.reset();
+                document.getElementById('category-color').value = '#3498db';
+                
+                // Reload categories
+                await loadCategories();
+                
+            } catch (error) {
+                console.error('Error saving category:', error);
+                showToast('Failed to save category', true);
+            }
+        });
+
+        // Delete category
+        async function deleteCategory(id) {
+            const categoryId = parseInt(id);
+            
+            try {
+                // Check if category is being used in transactions
+                const transactionsWithCategory = await db.transactions
+                    .where('category').equals(categoryId)
+                    .count();
+                
+                if (transactionsWithCategory > 0) {
+                    showToast(`Cannot delete: This category is used in ${transactionsWithCategory} transactions`, true);
+                    return;
+                }
+                
+                // Check if category is being used in reminders
+                const remindersWithCategory = await db.reminders
+                    .where('category').equals(categoryId)
+                    .count();
+                
+                if (remindersWithCategory > 0) {
+                    showToast(`Cannot delete: This category is used in ${remindersWithCategory} reminders`, true);
+                    return;
+                }
+                
+                // Show delete confirmation
+                const deleteModal = document.getElementById('delete-confirmation-modal');
+                const confirmDeleteBtn = document.getElementById('confirm-delete');
+                const cancelDeleteBtn = document.getElementById('cancel-delete');
+                
+                // Open modal
+                deleteModal.classList.add('active');
+                
+                // Set up event handlers
+                const handleConfirmDelete = async () => {
+                    try {
+                        await db.categories.delete(categoryId);
+                        showToast('Category deleted successfully');
+                        await loadCategories();
+                    } catch (error) {
+                        console.error('Error deleting category:', error);
+                        showToast('Failed to delete category', true);
+                    } finally {
+                        deleteModal.classList.remove('active');
+                        cleanupDeleteHandlers();
+                    }
+                };
+                
+                const handleCancelDelete = () => {
+                    deleteModal.classList.remove('active');
+                    cleanupDeleteHandlers();
+                };
+                
+                const cleanupDeleteHandlers = () => {
+                    confirmDeleteBtn.removeEventListener('click', handleConfirmDelete);
+                    cancelDeleteBtn.removeEventListener('click', handleCancelDelete);
+                };
+                
+                confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
+                cancelDeleteBtn.addEventListener('click', handleCancelDelete);
+                
+            } catch (error) {
+                console.error('Error in delete category process:', error);
+                showToast('An error occurred', true);
+            }
+        }
+
+        // Toast notification function
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = isError ? 'toast error active' : 'toast active';
+            
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 3000);
+        }
+
+        // Tab navigation
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Get the target tab
+                const targetTab = tab.dataset.tab;
+                
+                // Make this tab active
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Show the target content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(targetTab).classList.add('active');
+            });
+        });
+
+        // Initialize the application
+        async function initApp() {
+            try {
+                // Set today's date as default for date inputs
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('transaction-date').value = today;
+                
+                if (document.getElementById('reminder-next-date')) {
+                    document.getElementById('reminder-next-date').value = today;
+                }
+                
+                if (document.getElementById('filter-date-from')) {
+                    const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+                    document.getElementById('filter-date-from').value = firstDayOfMonth;
+                    document.getElementById('filter-date-to').value = today;
+                }
+                
+                // Initialize categories
+                await initCategories();
+                
+                // Initialize other functions
+                // These will be implemented in subsequent code 
+                // loadTransactions();
+                // loadReminders();
+                // updateDashboard();
+                
+            } catch (error) {
+                console.error('Error initializing app:', error);
+                showToast('Failed to initialize application', true);
+            }
+        }
+
+        // Start the application when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', initApp);
+
+        // Transaction CRUD operations
+        
+        // Add transaction
+        const transactionForm = document.getElementById('transaction-form');
+        transactionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const type = document.getElementById('transaction-type').value;
+            const amount = parseFloat(document.getElementById('transaction-amount').value);
+            const date = document.getElementById('transaction-date').value;
+            const categoryId = parseInt(document.getElementById('transaction-category').value);
+            const description = document.getElementById('transaction-description').value.trim();
+            
+            if (isNaN(amount) || amount <= 0) {
+                showToast('Please enter a valid amount', true);
+                return;
+            }
+            
+            try {
+                // Get the category object
+                const category = await db.categories.get(categoryId);
+                if (!category) {
+                    showToast('Selected category not found', true);
+                    return;
+                }
+                
+                // Add transaction
+                await db.transactions.add({
+                    type,
+                    amount,
+                    date,
+                    category: categoryId,
+                    categoryName: category.name,
+                    categoryColor: category.color,
+                    description,
+                    createdAt: new Date()
+                });
+                
+                // Reset form
+                transactionForm.reset();
+                document.getElementById('transaction-date').value = new Date().toISOString().split('T')[0];
+                document.getElementById('transaction-type').value = 'expense';
+                
+                // Reload transactions and update dashboard
+                await loadTransactions();
+                updateDashboard();
+                
+                showToast('Transaction added successfully');
+            } catch (error) {
+                console.error('Error adding transaction:', error);
+                showToast('Failed to add transaction', true);
+            }
+        });
+
+        // Load and display transactions
+        async function loadTransactions(filters = {}) {
+            try {
+                let query = db.transactions.orderBy('date').reverse();
+                
+                // Apply filters if provided
+                if (filters.fromDate) {
+                    query = query.and(tx => tx.date >= filters.fromDate);
+                }
+                
+                if (filters.toDate) {
+                    query = query.and(tx => tx.date <= filters.toDate);
+                }
+                
+                if (filters.type && filters.type !== 'all') {
+                    query = query.and(tx => tx.type === filters.type);
+                }
+                
+                if (filters.category && filters.category !== 'all') {
+                    query = query.and(tx => tx.category === parseInt(filters.category));
+                }
+                
+                // Execute query
+                const transactions = await query.toArray();
+                
+                // Get categories to display names
+                const categories = await db.categories.toArray();
+                const categoryMap = {};
+                categories.forEach(cat => {
+                    categoryMap[cat.id] = cat;
+                });
+                
+                // Display in transactions list
+                displayTransactionsList(transactions, categoryMap);
+                
+                // Display recent transactions on dashboard
+                displayRecentTransactions(transactions.slice(0, 5), categoryMap);
+                
+                return transactions;
+            } catch (error) {
+                console.error('Error loading transactions:', error);
+                showToast('Failed to load transactions', true);
+                return [];
+            }
+        }
+
+        // Display transactions in the transactions tab
+        function displayTransactionsList(transactions, categoryMap) {
+            const tableBody = document.getElementById('transactions-table-body');
+            tableBody.innerHTML = '';
+            
+            if (transactions.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = '<td colspan="5" style="text-align: center;">No transactions found</td>';
+                tableBody.appendChild(emptyRow);
+                return;
+            }
+            
+            transactions.forEach(tx => {
+                const row = document.createElement('tr');
+                
+                // Format date
+                const formattedDate = new Date(tx.date).toLocaleDateString();
+                
+                // Get category info
+                const category = categoryMap[tx.category] || { name: 'Unknown', color: '#999' };
+                
+                // Format amount based on transaction type
+                const amountClass = tx.type === 'income' ? 'amount-income' : 'amount-expense';
+                const amountSign = tx.type === 'income' ? '+' : '-';
+                const formattedAmount = `${amountSign}${tx.amount.toFixed(2)}`;
+                
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${tx.description || '-'}</td>
+                    <td>
+                        <span class="category-badge" style="background-color: ${category.color}">
+                            ${category.name}
+                        </span>
+                    </td>
+                    <td class="transaction-amount ${amountClass}">${formattedAmount}</td>
+                    <td class="transaction-actions">
+                        <button class="btn-icon edit-transaction" data-id="${tx.id}">✏️</button>
+                        <button class="btn-icon delete-transaction" data-id="${tx.id}">🗑️</button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Add event listeners for edit and delete buttons
+            document.querySelectorAll('.edit-transaction').forEach(button => {
+                button.addEventListener('click', () => editTransaction(button.dataset.id));
+            });
+            
+            document.querySelectorAll('.delete-transaction').forEach(button => {
+                button.addEventListener('click', () => deleteTransaction(button.dataset.id));
+            });
+        }
+
+        // Display recent transactions on dashboard
+        function displayRecentTransactions(transactions, categoryMap) {
+            const recentTransactionsContainer = document.getElementById('recent-transactions');
+            
+            if (!recentTransactionsContainer) return;
+            
+            if (transactions.length === 0) {
+                recentTransactionsContainer.innerHTML = '<p>No recent transactions</p>';
+                return;
+            }
+            
+            const table = document.createElement('table');
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            
+            const tableBody = table.querySelector('tbody');
+            
+            transactions.forEach(tx => {
+                const row = document.createElement('tr');
+                
+                // Format date
+                const formattedDate = new Date(tx.date).toLocaleDateString();
+                
+                // Get category info
+                const category = categoryMap[tx.category] || { name: 'Unknown', color: '#999' };
+                
+                // Format amount based on transaction type
+                const amountClass = tx.type === 'income' ? 'amount-income' : 'amount-expense';
+                const amountSign = tx.type === 'income' ? '+' : '-';
+                const formattedAmount = `${amountSign}${tx.amount.toFixed(2)}`;
+                
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${tx.description || '-'}</td>
+                    <td>
+                        <span class="category-badge" style="background-color: ${category.color}">
+                            ${category.name}
+                        </span>
+                    </td>
+                    <td class="transaction-amount ${amountClass}">${formattedAmount}</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            recentTransactionsContainer.innerHTML = '';
+            recentTransactionsContainer.appendChild(table);
+        }
+
+        // Edit transaction
+        async function editTransaction(id) {
+            try {
+                const transaction = await db.transactions.get(parseInt(id));
+                if (!transaction) {
+                    showToast('Transaction not found', true);
+                    return;
+                }
+                
+                // Fill form with transaction details
+                document.getElementById('edit-transaction-id').value = transaction.id;
+                document.getElementById('edit-transaction-type').value = transaction.type;
+                document.getElementById('edit-transaction-amount').value = transaction.amount;
+                document.getElementById('edit-transaction-date').value = transaction.date;
+                document.getElementById('edit-transaction-description').value = transaction.description || '';
+                
+                // Update category dropdown based on transaction type
+                const editTypeSelect = document.getElementById('edit-transaction-type');
+                const editCategorySelect = document.getElementById('edit-transaction-category');
+                
+                // Load appropriate categories based on transaction type
+                const categories = await db.categories
+                    .where('type')
+                    .equals(transaction.type)
+                    .toArray();
+                
+                editCategorySelect.innerHTML = '';
+                categories.forEach(category => {
+                    const option = new Option(category.name, category.id);
+                    if (category.id === transaction.category) {
+                        option.selected = true;
+                    }
+                    editCategorySelect.appendChild(option);
+                });
+                
+                // Add event listener to type selector to update categories when changed
+                editTypeSelect.addEventListener('change', async () => {
+                    const newType = editTypeSelect.value;
+                    const categoriesForType = await db.categories
+                        .where('type')
+                        .equals(newType)
+                        .toArray();
+                    
+                    editCategorySelect.innerHTML = '';
+                    categoriesForType.forEach(category => {
+                        const option = new Option(category.name, category.id);
+                        editCategorySelect.appendChild(option);
+                    });
+                }, { once: true }); // Use once: true to prevent multiple listeners
+                
+                // Show the modal
+                const modal = document.getElementById('edit-transaction-modal');
+                modal.classList.add('active');
+                
+                // Set up event handlers for the modal
+                const editForm = document.getElementById('edit-transaction-form');
+                const closeModalBtn = document.getElementById('close-edit-transaction');
+                const cancelBtn = document.getElementById('cancel-edit-transaction');
+                
+                const closeModal = () => {
+                    modal.classList.remove('active');
+                    editForm.removeEventListener('submit', handleSubmit);
+                    closeModalBtn.removeEventListener('click', closeModal);
+                    cancelBtn.removeEventListener('click', closeModal);
+                };
+                
+                const handleSubmit = async (e) => {
+                    e.preventDefault();
+                    
+                    const updatedTransaction = {
+                        type: document.getElementById('edit-transaction-type').value,
+                        amount: parseFloat(document.getElementById('edit-transaction-amount').value),
+                        date: document.getElementById('edit-transaction-date').value,
+                        category: parseInt(document.getElementById('edit-transaction-category').value),
+                        description: document.getElementById('edit-transaction-description').value.trim()
+                    };
+                    
+                    try {
+                        // Get the category object
+                        const category = await db.categories.get(updatedTransaction.category);
+                        if (!category) {
+                            showToast('Selected category not found', true);
+                            return;
+                        }
+                        
+                        // Add category info to transaction
+                        updatedTransaction.categoryName = category.name;
+                        updatedTransaction.categoryColor = category.color;
+                        
+                        // Update transaction
+                        await db.transactions.update(transaction.id, updatedTransaction);
+                        
+                        showToast('Transaction updated successfully');
+                        
+                        // Reload transactions and update dashboard
+                        await loadTransactions();
+                        updateDashboard();
+                        
+                        closeModal();
+                    } catch (error) {
+                        console.error('Error updating transaction:', error);
+                        showToast('Failed to update transaction', true);
+                    }
+                };
+                
+                editForm.addEventListener('submit', handleSubmit);
+                closeModalBtn.addEventListener('click', closeModal);
+                cancelBtn.addEventListener('click', closeModal);
+                
+            } catch (error) {
+                console.error('Error opening edit transaction modal:', error);
+                showToast('An error occurred', true);
+            }
+        }
+
+        // Delete transaction
+        async function deleteTransaction(id) {
+            try {
+                const transactionId = parseInt(id);
+                
+                // Show delete confirmation modal
+                const deleteModal = document.getElementById('delete-confirmation-modal');
+                const confirmDeleteBtn = document.getElementById('confirm-delete');
+                const cancelDeleteBtn = document.getElementById('cancel-delete');
+                
+                // Open modal
+                deleteModal.classList.add('active');
+                
+                // Set up event handlers
+                const handleConfirmDelete = async () => {
+                    try {
+                        await db.transactions.delete(transactionId);
+                        showToast('Transaction deleted successfully');
+                        
+                        // Reload transactions and update dashboard
+                        await loadTransactions();
+                        updateDashboard();
+                    } catch (error) {
+                        console.error('Error deleting transaction:', error);
+                        showToast('Failed to delete transaction', true);
+                    } finally {
+                        deleteModal.classList.remove('active');
+                        cleanupDeleteHandlers();
+                    }
+                };
+                
+                const handleCancelDelete = () => {
+                    deleteModal.classList.remove('active');
+                    cleanupDeleteHandlers();
+                };
+                
+                const cleanupDeleteHandlers = () => {
+                    confirmDeleteBtn.removeEventListener('click', handleConfirmDelete);
+                    cancelDeleteBtn.removeEventListener('click', handleCancelDelete);
+                };
+                
+                confirmDeleteBtn.addEventListener('click', handleConfirmDelete);
+                cancelDeleteBtn.addEventListener('click', handleCancelDelete);
+                
+            } catch (error) {
+                console.error
